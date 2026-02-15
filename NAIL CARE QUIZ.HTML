@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NAIL CARE QUIZ</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path fill='%23800000' d='M50 5 L95 25 L95 65 C95 85 50 95 50 95 C50 95 5 85 5 65 L5 25 Z'/><path fill='white' d='M42 30 h16 v15 h15 v16 h-15 v15 h-16 v-15 h-15 v-16 h15 v-15 z'/></svg>">
+    
+    <!-- Fonts & Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    
+    <!-- React & Tailwind -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        tajawal: ['Tajawal', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            primary: '#800000', 
+                            secondary: '#a52a2a',
+                            light: '#fff0f0',
+                        },
+                        medical: {
+                            green: '#10b981',
+                            blue: '#3b82f6',
+                            bg: '#f8fafc'
+                        }
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'pop': 'pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                        'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                        'fade-in': 'fadeIn 0.4s ease-out forwards',
+                        'pulse-slow': 'pulse 3s infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        pop: {
+                            '0%': { transform: 'scale(1)' },
+                            '50%': { transform: 'scale(0.95)' },
+                            '100%': { transform: 'scale(1)' },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(100%)' },
+                            '100%': { transform: 'translateY(0)' },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { 
+            font-family: 'Tajawal', sans-serif; 
+            background-color: #f8fafc;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 24px 24px;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .no-tap-highlight { -webkit-tap-highlight-color: transparent; }
+        
+        .card-shadow {
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05), 0 5px 15px -5px rgba(0, 0, 0, 0.02);
+        }
+
+        .option-btn {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .option-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Confetti */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #f00;
+            animation: confetti-fall 3s linear forwards;
+        }
+        @keyframes confetti-fall {
+            0% { transform: translateY(-100vh) rotate(0deg); }
+            100% { transform: translateY(100vh) rotate(720deg); }
+        }
+
+        /* Bottom dock gradient */
+        .bottom-dock-gradient {
+            background: linear-gradient(to top, #ffffff 90%, rgba(255,255,255,0) 100%);
+        }
+    </style>
+</head>
+<body class="text-slate-800 no-tap-highlight selection:bg-brand-primary selection:text-white overflow-x-hidden">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // --- SOUND SYSTEM (Synthesizer) ---
+        const SoundSystem = {
+            ctx: null,
+            init: function() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            },
+            play: function(type) {
+                if (!this.ctx) this.init();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                const now = this.ctx.currentTime;
+
+                switch (type) {
+                    case 'select': // Soft click
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(400, now);
+                        osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+                        gain.gain.setValueAtTime(0.05, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                        osc.start(now);
+                        osc.stop(now + 0.1);
+                        break;
+                    case 'correct': // Pleasant ding
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(600, now);
+                        osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+                        gain.gain.setValueAtTime(0.1, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                        osc.start(now);
+                        osc.stop(now + 0.5);
+                        // Add a second tone for harmony
+                        const osc2 = this.ctx.createOscillator();
+                        const gain2 = this.ctx.createGain();
+                        osc2.connect(gain2);
+                        gain2.connect(this.ctx.destination);
+                        osc2.type = 'triangle';
+                        osc2.frequency.setValueAtTime(900, now);
+                        osc2.frequency.exponentialRampToValueAtTime(1800, now + 0.1);
+                        gain2.gain.setValueAtTime(0.05, now);
+                        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                        osc2.start(now);
+                        osc2.stop(now + 0.5);
+                        break;
+                    case 'wrong': // Dull buzz
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(150, now);
+                        osc.frequency.linearRampToValueAtTime(100, now + 0.3);
+                        gain.gain.setValueAtTime(0.1, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                        osc.start(now);
+                        osc.stop(now + 0.3);
+                        break;
+                    case 'success': // Fanfareish
+                        [440, 554, 659, 880].forEach((freq, i) => {
+                            const o = this.ctx.createOscillator();
+                            const g = this.ctx.createGain();
+                            o.connect(g);
+                            g.connect(this.ctx.destination);
+                            o.type = 'triangle';
+                            o.frequency.value = freq;
+                            g.gain.setValueAtTime(0, now + i*0.1);
+                            g.gain.linearRampToValueAtTime(0.1, now + i*0.1 + 0.05);
+                            g.gain.exponentialRampToValueAtTime(0.001, now + i*0.1 + 0.6);
+                            o.start(now + i*0.1);
+                            o.stop(now + i*0.1 + 0.6);
+                        });
+                        break;
+                    case 'transition': // Whoosh
+                        const noiseBuffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.5, this.ctx.sampleRate);
+                        const data = noiseBuffer.getChannelData(0);
+                        for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+                        const noise = this.ctx.createBufferSource();
+                        noise.buffer = noiseBuffer;
+                        const noiseFilter = this.ctx.createBiquadFilter();
+                        noiseFilter.type = 'lowpass';
+                        noiseFilter.frequency.value = 1000;
+                        const noiseGain = this.ctx.createGain();
+                        noise.connect(noiseFilter);
+                        noiseFilter.connect(noiseGain);
+                        noiseGain.connect(this.ctx.destination);
+                        noiseGain.gain.setValueAtTime(0.05, now);
+                        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                        noise.start(now);
+                        break;
+                }
+            }
+        };
+
+        // --- QUESTIONS DATA (SIMPLIFIED ARABIC) ---
+        const questionsData = [
+            // --- DIAGNOSIS & CLINICAL ---
+            {
+                id: 1,
+                category: "تشخيص",
+                question: "لو عميل بيشتكي من خطوط بيضاء بالعرض في ظوافره مع تشققات، ده غالباً بيكون بسبب نقص في إيه؟",
+                options: [
+                    "الكالسيوم وفيتامين د",
+                    "الحديد، الزنك، والبيوتين",
+                    "أوميغا 3 والدهون",
+                    "البوتاسيوم والصوديوم"
+                ],
+                correctAnswer: 1,
+                explanation: "الخطوط البيضاء والتشققات دي علامات مشهورة لنقص معادن مهمة زي الزنك والحديد، ونقص البيوتين."
+            },
+            {
+                id: 2,
+                category: "تشخيص",
+                question: "لو الظوافر سميكة جداً ولونها مغير للأصفر أو البني وبتتفتت من الحروف، دي علامة مؤكدة على إيه؟",
+                options: [
+                    "فطريات الأظافر",
+                    "صدفية",
+                    "نقص فيتامين شديد",
+                    "خبطة قديمة"
+                ],
+                correctAnswer: 0,
+                explanation: "لما الظفر يبقى سميك ولونه يصفر ويفرول، دي الأعراض الأساسية لفطريات الأظافر."
+            },
+            {
+                id: 3,
+                category: "معلومات",
+                question: "ليه كبار السن ومرضى السكر ظوافرهم بتبقى سميكة وناشفة زيادة عن اللزوم؟",
+                options: [
+                    "بسبب زيادة السكر في الاظافر",
+                    "بسبب ضعف الدورة الدموية في الأطراف",
+                    "بسبب قلة شرب الماء",
+                    "بسبب لبس الأحذية الواسعة"
+                ],
+                correctAnswer: 1,
+                explanation: "ضعف وصول الدم لأطراف الصوابع (اللي بيحصل مع السكر والسن الكبير) بيخلي الظفر ينمو بشكل سميك ومش طبيعي."
+            },
+            {
+                id: 4,
+                category: "تشخيص",
+                question: "إيه السبب الشائع اللي بيخلي ظوافر القدم سميكة ومعووجة حتى لو مفيش فطريات؟",
+                options: [
+                    "نقص فيتامين سي",
+                    "الضغط المستمر من الأحذية الضيقة",
+                    "المشي حافي في البيت",
+                    "استخدام قصافة حديد"
+                ],
+                correctAnswer: 1,
+                explanation: "الضغط المستمر من الجزم الضيقة بيأثر على نمو الظفر وبيخليه يتخن ويغير شكله كنوع من الحماية لنفسه."
+            },
+            
+            // --- ROUTINE & PROTOCOLS ---
+            {
+                id: 5,
+                category: "روتين",
+                question: "ليه بننصح بنقع الاظافر في ميه دافية لمدة 5 لـ 7 دقايق بس مش أكتر قبل قصها؟",
+                options: [
+                    "عشان نوفر وقت العميل",
+                    "عشان الجلد الميت يطرى ونعرف نقصه من غير ما الاظافر نفسها تبوش وتضعف",
+                    "عشان الميه بتبرد بعد كده",
+                    "عشان الصابون ميبوظش"
+                ],
+                correctAnswer: 1,
+                explanation: "لو النقع زاد عن كده الظفر بيمتص ميه كتير وبيضعف جداً، لكن 5 دقايق كفاية عشان نطري الجلد بس."
+            },
+            {
+                id: 6,
+                category: "روتين",
+                question: "ليه غلط نبرد الظوافر بحركة 'رايح جاي' بالمبرد؟",
+                options: [
+                    "عشان المبرد بيسخن",
+                    "عشان الحركة دي بتضعف الاظافر وبتخليها تتقصف وتشقق",
+                    "عشان بتضيع وقت",
+                    "عشان بتغير لون الاظافر"
+                ],
+                correctAnswer: 1,
+                explanation: "الحركة دي بتفكك طبقات الاظافر عن بعضها، الصح نبرد في اتجاه واحد بس."
+            },
+            {
+                id: 7,
+                category: "حماية",
+                question: "إزاي المنظفات والصابون القوي بيسبب تكسير الظوافر؟",
+                options: [
+                    "بينشف الاظافر وبيشيل الزيوت الطبيعية اللي بتحميها",
+                    "بيقلل درجة حرارة الاظافر",
+                    "بيتخن الجلد حوالين الاظافر",
+                    "بيغير حموضة الدم"
+                ],
+                correctAnswer: 0,
+                explanation: "الصابون والمنظفات بتشيل الدهون الطبيعية اللي بترطب الاظافر، فبينشف ويكسر بسرعة."
+            },
+            {
+                id: 8,
+                category: "روتين",
+                question: "عشان نمنع 'الظفر الغائر' (الظفر اللي بيدخل في اللحم)، المفروض نقص الاظافر إزاي؟",
+                options: [
+                    "نقص الجوانب جامد وبشكل دائري",
+                    "نقص بخط مستقيم، وبلاش ندور الحروف أوي",
+                    "نسيب الظوافر طويلة جداً",
+                    "نقص بعد المانيكير علطول"
+                ],
+                correctAnswer: 1,
+                explanation: "القص المستقيم بيمنع حرف الظفر إنه يلف ويدخل في الجلد ويعمل التهاب."
+            },
+
+            // --- THERAPEUTICS & PRODUCTS ---
+            {
+                id: 9,
+                category: "علاج",
+                question: "لو حد عنده فطريات في الظوافر، إيه أنسب منتج يرشه عليها؟",
+                options: [
+                    "Evasiline",
+                    "Nailceta Nail Lotion (كود 121004)",
+                    "Dermacutix Lotion",
+                    "Nail & Cuticle Oil"
+                ],
+                correctAnswer: 1,
+                explanation: "نيل سيتا (Nailceta) هو لوشن مخصص لعلاج الحالات دي وكوده على السيستم 121004."
+            },
+            {
+                id: 10,
+                category: "منتجات",
+                question: "لو عميل عايز حاجة تشيل الجلد الميت والزوائد اللي حوالين الاظافر. نطلعله إيه؟",
+                options: [
+                    "Dermacutix Nail Care",
+                    "Evasiline Cuticle Remover (إيفازلين)",
+                    "See-Lite Serum",
+                    "Closol"
+                ],
+                correctAnswer: 1,
+                explanation: "إيفازلين (Evasiline Cuticle Remover) مخصص إنه يدوب الجلد الميت ويسهل إزالته."
+            },
+            {
+                id: 11,
+                category: "منتجات",
+                question: "إيه المنتج اللي بيغذي الاظافر وبيساعدها تطول وتبقى أقوى؟",
+                options: [
+                    "Closol Spray",
+                    "Dermacutix Nail Care Lotion (ديرماكيوتكس)",
+                    "Evasiline",
+                    "Acetone"
+                ],
+                correctAnswer: 1,
+                explanation: "ديرماكيوتكس لوشن فيه فيتامينات ومغذيات بتقوي الاظافر وتساعدها تطول."
+            },
+            {
+                id: 12,
+                category: "منتجات",
+                question: "سيروم 'يولو' (YOLO 13 Serum Cuticle) وظيفته الأساسية إيه؟",
+                options: [
+                    "علاج الصدفية",
+                    "ترطيب وعلاج الجلد اللي حوالين الاظافر (الكيوتيكل)",
+                    "إزالة المانيكير",
+                    "تفتيح البشرة"
+                ],
+                correctAnswer: 1,
+                explanation: "سيروم يولو معمول مخصوص عشان يرطب الجلد اللي حوالين الاظافر ويمنع الجفاف."
+            },
+            {
+                id: 13,
+                category: "منتجات",
+                question: "لو الظوافر ضعيفة جداً ومبتطولش، بننصح بـ 'سي لايت ريسكيو' (See-Lite Rescue) عشان هو بيعمل إيه؟",
+                options: [
+                    "مضاد حيوي",
+                    "بيقوي الاظافر وبيحفز نموها",
+                    "بيشيل الجلد الميت",
+                    "بيدي لون حلو"
+                ],
+                correctAnswer: 1,
+                explanation: "سي لايت ريسكيو ده مقوي ومحفز للنمو، بينفع جداً للظوافر الضعيفة."
+            },
+
+            // --- CROSS-SELLING & PROFESSIONAL ADVICE ---
+            {
+                id: 14,
+                category: "بيع",
+                question: "ليه لازم نحط طبقة أساسية (Base Coat) قبل المانيكير، خصوصاً الألوان الغامقة؟",
+                options: [
+                    "عشان المانيكير ينشف بسرعة",
+                    "عشان يحمي الاظافر من الاصفرار ويمنع وصول الكيماويات للاظافر",
+                    "عشان يدي لون مطفي",
+                    "عشان هو أرخص"
+                ],
+                correctAnswer: 1,
+                explanation: "البيس كوت (Base Coat) بيعمل طبقة عازلة بتحمي الاظافر إنها تشرب لون المانيكير وتصفر."
+            },
+            {
+                id: 15,
+                category: "بيع",
+                question: "عشان كريمات وعلاجات الظوافر تجيب نتيجة أحسن وتمتص بسرعة، يفضل نعمل إيه قبلها؟",
+                options: [
+                    "نغسل إيدنا بميه سخنة",
+                    "نستخدم مقشر (Scrub) خفيف عشان نشيل الجلد الميت",
+                    "نحط فازلين تقيل",
+                    "نحط مانيكير الأول"
+                ],
+                correctAnswer: 1,
+                explanation: "المقشر بيشيل الجلد الميت اللي سادد المسام، فبيخلي أي كريم نحطه بعده يمتص بسهولة."
+            },
+            {
+                id: 16,
+                category: "بيع",
+                question: "لو حد بيشتكي من (الجلد الزايد اللي بيوجع جنب الاظافر) وجفاف شديد، إيه أحسن حاجة ياخدها؟",
+                options: [
+                    "يقص الجلد وخلاص",
+                    "كريم للكيوتيكل (ترطيب) مع زيت مغذي (حماية)",
+                    "مبرد خشن وأسيتون",
+                    "مضاد فطريات بس"
+                ],
+                correctAnswer: 1,
+                explanation: "الكريم بيرطب الجلد والزيت بيحبس الرطوبة دي، فبيعالجوا الجفاف اللي بيزود الجلد الميت."
+            },
+
+            // --- EXPERT CONSULTATION ---
+            {
+                id: 17,
+                category: "استشارات",
+                question: "ليه دايماً بنقول بلاش نقص الجلد الحي اللي لازق في الاظافر من تحت (الكيوتيكل)؟",
+                options: [
+                    "عشان بيطول بسرعة تاني",
+                    "عشان ده اللي بيحمي الاظافر من البكتيريا، ولو قصيناه ممكن يحصل التهاب",
+                    "عشان بيخلي شكل الاظافر وحش",
+                    "عادي مفيش مشكلة لو قصيناه"
+                ],
+                correctAnswer: 1,
+                explanation: "الجلد ده (الكيوتيكل) هو اللي قافل على الاظافر وبيمنع دخول الميكروبات، قصه بيفتح باب للعدوى."
+            },
+            {
+                id: 18,
+                category: "استشارات",
+                question: "المفروض نقص ظوافر اليد كل قد إيه تقريباً؟",
+                options: [
+                    "كل 3 أيام",
+                    "كل أسبوع أو 10 أيام",
+                    "مرة كل شهر",
+                    "لما تتكسر بس"
+                ],
+                correctAnswer: 1,
+                explanation: "المعدل الطبيعي لنمو الظوافر بيحتاج قص وتهذيب كل أسبوع لـ 10 أيام."
+            },
+            {
+                id: 19,
+                category: "معلومات",
+                question: "البيوتين والزنك مهمين جداً لقوة الظوافر، نلاقيهم فين في الأكل؟",
+                options: [
+                    "الليمون والبرتقال",
+                    "البيض والمكسرات زي اللوز والكاجو",
+                    "الرز والمكرونة",
+                    "المشروبات الغازية"
+                ],
+                correctAnswer: 1,
+                explanation: "البيض والمكسرات مليانين بيوتين وزنك، ودول أهم حاجات لتقوية الظوافر."
+            },
+            {
+                id: 20,
+                category: "استشارات",
+                question: "إيه السبب الرئيسي اللي يخلي الاظافر تقشر طبقات من قدام (الظفر يورّق)؟",
+                options: [
+                    "كتر استخدام المية والصابون من غير ترطيب، أو البرد بطريقة غلط",
+                    "نقص كالسيوم بس",
+                    "استخدام واقي الشمس",
+                    "النوم الكتير"
+                ],
+                correctAnswer: 0,
+                explanation: "لما الاظافر تتبل وتنشف كتير بيفك من بعضه ويقشر، وكمان البرد 'رايح جاي' بيعمل كده."
+            },
+            {
+                id: 21,
+                category: "نصائح",
+                question: "ليه بننصح إننا نريح الظوافر من المانيكير كل فترة؟",
+                options: [
+                    "عشان نوفر فلوس",
+                    "عشان الاظافر ترتاح ويرجع لونها طبيعي وميصفرش",
+                    "عشان الاظافر تتنفس هواء",
+                    "عشان نغير شكل الاظافر"
+                ],
+                correctAnswer: 1,
+                explanation: "الراحة من المانيكير بتدي فرصة للاظافر تستعيد رطوبتها الطبيعية ولونها يرجع صحي."
+            }
+        ];
+
+        // --- COMPONENTS ---
+
+        const Logo = () => (
+            <div className="flex flex-col items-center">
+                <div className="w-16 h-16 bg-brand-primary rounded-xl flex items-center justify-center shadow-lg transform rotate-3 mb-2">
+                    <i className="fas fa-hand-holding-medical text-white text-3xl"></i>
+                </div>
+            </div>
+        );
+
+        const Header = () => (
+            <header className="bg-white/90 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50">
+                <div className="max-w-screen-md mx-auto px-6 py-4 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-brand-primary rounded-lg flex items-center justify-center text-white shadow-md">
+                            <i className="fas fa-heartbeat"></i>
+                        </div>
+                        <div>
+                            <h1 className="font-bold text-brand-primary text-lg leading-tight">آل عبد اللطيف الطرشوبي</h1>
+                        </div>
+                    </div>
+                </div>
+            </header>
+        );
+
+        const WelcomeScreen = ({ colleagueName, setColleagueName, onStart }) => {
+            const [error, setError] = useState('');
+
+            const handleSubmit = () => {
+                SoundSystem.play('select');
+                if (!colleagueName.trim()) {
+                    setError('من فضلك أدخل اسمك للبدء');
+                    SoundSystem.play('wrong');
+                    return;
+                }
+                SoundSystem.play('transition');
+                onStart();
+            };
+
+            return (
+                <div className="flex flex-col items-center justify-center py-12 px-6 animate-fade-in">
+                    <Logo />
+                    <h2 className="text-3xl font-extrabold text-slate-800 mt-6 mb-2 text-center">العناية بالأظافر</h2>
+                    <p className="text-slate-500 text-center mb-10 max-w-xs leading-relaxed">اختبر معلوماتك في المنتجات والروتين</p>
+
+                    <div className="w-full max-w-md bg-white p-8 rounded-3xl card-shadow border border-slate-50">
+                        <label className="block text-sm font-bold text-slate-700 mb-3 pr-1">اسم الزميل/الزميلة</label>
+                        <div className="relative">
+                            <input 
+                                type="text"
+                                value={colleagueName}
+                                onChange={(e) => {
+                                    setColleagueName(e.target.value);
+                                    setError('');
+                                }}
+                                className="w-full pl-4 pr-12 py-4 rounded-xl bg-slate-50 border-2 border-slate-100 focus:border-brand-primary focus:bg-white focus:ring-0 transition-all outline-none text-slate-800 font-medium"
+                                placeholder="اكتب اسمك هنا..."
+                            />
+                            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400">
+                                <i className="fas fa-user"></i>
+                            </div>
+                        </div>
+                        {error && <p className="text-red-500 text-xs mt-3 font-bold flex items-center gap-1"><i className="fas fa-exclamation-circle"></i> {error}</p>}
+
+                        <button 
+                            onClick={handleSubmit}
+                            className="w-full mt-8 bg-brand-primary text-white text-lg font-bold py-4 rounded-xl shadow-lg hover:shadow-brand-primary/30 hover:-translate-y-1 active:scale-95 transition-all duration-300 flex items-center justify-center gap-3 group"
+                        >
+                            <span>بدء التحدي</span>
+                            <i className="fas fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        const QuestionCard = ({ 
+            questionData, 
+            totalQuestions, 
+            currentStep, 
+            onAnswer, 
+            userAnswer, 
+            isSubmitted,
+            onNext 
+        }) => {
+            const [selectedId, setSelectedId] = useState(null);
+
+            const handleOptionClick = (idx) => {
+                if (isSubmitted) return;
+                SoundSystem.play('select');
+                setSelectedId(idx);
+                setTimeout(() => {
+                    onAnswer(idx);
+                }, 300);
+            };
+
+            return (
+                <div className="w-full max-w-lg mx-auto pb-40 px-4 animate-fade-in relative">
+                    {/* Header Info */}
+                    <div className="flex justify-between items-end mb-6">
+                        <div className="flex flex-col gap-1">
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">السؤال {currentStep} من {totalQuestions}</span>
+                            <div className="h-2 w-32 bg-slate-200 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-brand-primary transition-all duration-500 ease-out"
+                                    style={{ width: `${(currentStep / totalQuestions) * 100}%` }}
+                                ></div>
+                            </div>
+                        </div>
+                        <span className="px-3 py-1 bg-brand-light text-brand-primary text-xs font-bold rounded-lg border border-brand-primary/10">
+                            {questionData.category}
+                        </span>
+                    </div>
+
+                    {/* Question Bubble */}
+                    <div className="bg-white p-6 md:p-8 rounded-[2rem] card-shadow mb-6 border border-slate-50 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-brand-light rounded-bl-[4rem] -mr-8 -mt-8 z-0"></div>
+                        <h3 className="text-xl font-bold text-slate-800 leading-relaxed relative z-10">
+                            {questionData.question}
+                        </h3>
+                    </div>
+
+                    {/* Options */}
+                    <div className="space-y-3">
+                        {questionData.options.map((option, idx) => {
+                            let stateClass = "bg-white border-slate-100 text-slate-600 hover:border-brand-primary/30 hover:bg-slate-50 shadow-sm";
+                            let icon = <div className="w-6 h-6 rounded-full border-2 border-slate-200 flex items-center justify-center group-hover:border-brand-primary/50 transition-colors"></div>;
+
+                            // Selected State (Before Submission)
+                            if (selectedId === idx && !isSubmitted) {
+                                stateClass = "bg-brand-primary text-white border-brand-primary scale-95 shadow-inner ring-2 ring-brand-primary/20";
+                                icon = <div className="w-6 h-6 rounded-full border-2 border-white flex items-center justify-center"><div className="w-2 h-2 bg-white rounded-full"></div></div>;
+                            } 
+                            // Submitted State
+                            else if (isSubmitted) {
+                                if (idx === questionData.correctAnswer) {
+                                    // Correct Answer Style
+                                    stateClass = "bg-green-50 border-green-500 text-green-700 shadow-md ring-1 ring-green-200";
+                                    icon = <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-white text-xs"><i className="fas fa-check"></i></div>;
+                                } else if (idx === userAnswer) {
+                                    // Wrong Selected Answer Style
+                                    stateClass = "bg-red-50 border-red-500 text-red-700 opacity-90";
+                                    icon = <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center text-white text-xs"><i className="fas fa-times"></i></div>;
+                                } else {
+                                    // Other unselected options
+                                    stateClass = "bg-slate-50 border-transparent text-slate-400 opacity-50";
+                                }
+                            }
+
+                            return (
+                                <button
+                                    key={idx}
+                                    onClick={() => handleOptionClick(idx)}
+                                    disabled={isSubmitted || selectedId !== null}
+                                    className={`w-full text-right p-5 rounded-2xl border-2 font-bold flex justify-between items-center group option-btn ${stateClass}`}
+                                >
+                                    <span className="leading-snug">{option}</span>
+                                    {icon}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Inline Feedback & Explanation */}
+                    {isSubmitted && (
+                        <div className="mt-6 p-5 bg-white rounded-2xl border border-slate-100 shadow-lg animate-fade-in">
+                            <div className="flex items-start gap-3">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0 mt-1 ${
+                                    userAnswer === questionData.correctAnswer ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                                }`}>
+                                    <i className={`fas ${userAnswer === questionData.correctAnswer ? 'fa-check' : 'fa-times'}`}></i>
+                                </div>
+                                <div>
+                                    <h4 className={`font-bold text-base mb-1 ${
+                                        userAnswer === questionData.correctAnswer ? 'text-green-700' : 'text-red-700'
+                                    }`}>
+                                        {userAnswer === questionData.correctAnswer ? 'أحسنت، إجابة صحيحة' : 'إجابة خاطئة'}
+                                    </h4>
+                                    <p className="text-slate-600 text-sm leading-relaxed">
+                                        {questionData.explanation}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Spacer for bottom dock */}
+                    <div className="h-24"></div>
+
+                    {/* Sticky Bottom Dock for Next Button */}
+                    {isSubmitted && (
+                        <div className="fixed bottom-0 left-0 right-0 p-4 z-40 bottom-dock-gradient animate-slide-up">
+                            <div className="max-w-lg mx-auto">
+                                <button 
+                                    onClick={() => {
+                                        SoundSystem.play('select');
+                                        onNext();
+                                    }}
+                                    className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg hover:bg-slate-800 active:scale-95 transition-all shadow-xl shadow-slate-900/20 flex justify-center items-center gap-3 animate-pulse-slow"
+                                >
+                                    <span>{currentStep === totalQuestions ? 'عرض النتيجة النهائية' : 'السؤال التالي'}</span>
+                                    <i className="fas fa-arrow-left"></i>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const ResultScreen = ({ score, total, colleagueName, onRestart }) => {
+            const percentage = (score / total) * 100;
+            const isPassing = percentage >= 75;
+
+            useEffect(() => {
+                if (isPassing) {
+                    SoundSystem.play('success');
+                } else {
+                    SoundSystem.play('wrong'); // Softer fail sound
+                }
+            }, []);
+
+            return (
+                <div className="flex flex-col items-center justify-center py-10 px-4 animate-fade-in w-full max-w-lg mx-auto text-center">
+                    {/* Confetti if passing */}
+                    {isPassing && (
+                        <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
+                            {[...Array(20)].map((_, i) => (
+                                <div key={i} className="confetti" style={{
+                                    left: `${Math.random() * 100}%`,
+                                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'][Math.floor(Math.random() * 4)],
+                                    animationDuration: `${Math.random() * 3 + 2}s`,
+                                    animationDelay: `${Math.random() * 2}s`
+                                }}></div>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="w-24 h-24 rounded-full bg-white card-shadow flex items-center justify-center mb-6 relative">
+                        <i className={`fas ${isPassing ? 'fa-trophy text-yellow-500' : 'fa-clipboard-list text-slate-400'} text-4xl`}></i>
+                        {isPassing && <div className="absolute -top-2 -right-2 bg-brand-primary text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-md"><i className="fas fa-star"></i></div>}
+                    </div>
+
+                    <h1 className="text-3xl font-black text-slate-800 mb-2">
+                        {isPassing ? 'أداء رائع!' : 'حاول مرة أخرى'}
+                    </h1>
+                    <p className="text-slate-500 font-medium mb-8">
+                        شكراً لمشاركتك يا <span className="text-brand-primary font-bold">{colleagueName}</span>
+                    </p>
+
+                    <div className="w-full bg-white p-6 rounded-3xl card-shadow border border-slate-50 mb-8 flex flex-col items-center">
+                        <span className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-2">النتيجة النهائية</span>
+                        <div className="text-6xl font-black text-slate-800 mb-2 tracking-tighter">
+                            {score}<span className="text-3xl text-slate-300">/{total}</span>
+                        </div>
+                        <div className={`px-4 py-1 rounded-full text-sm font-bold ${isPassing ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {Math.round(percentage)}%
+                        </div>
+                    </div>
+
+                    <div className="w-full bg-brand-light/50 border border-brand-primary/10 p-5 rounded-2xl text-right mb-8">
+                        <h4 className="font-bold text-brand-primary mb-2 flex items-center gap-2">
+                            <i className="fas fa-lightbulb"></i> تذكير سريع
+                        </h4>
+                        <p className="text-slate-600 text-sm leading-relaxed">
+                            دائماً اقترح المنتجات التكميلية (زيوت الكيوتيكل، البيس كوت) لزيادة رضا العميل ورفع قيمة المبيعات.
+                        </p>
+                    </div>
+
+                    <button 
+                        onClick={() => {
+                            SoundSystem.play('select');
+                            onRestart();
+                        }}
+                        className="w-full bg-white border-2 border-slate-200 text-slate-700 py-4 rounded-xl font-bold text-lg hover:border-brand-primary hover:text-brand-primary transition-all flex justify-center items-center gap-2"
+                    >
+                        <i className="fas fa-redo"></i>
+                        <span>إعادة الاختبار</span>
+                    </button>
+                </div>
+            );
+        };
+
+        // --- MAIN APP COMPONENT ---
+
+        const App = () => {
+            const [gameState, setGameState] = useState('welcome');
+            const [colleagueName, setColleagueName] = useState('');
+            const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+            const [score, setScore] = useState(0);
+            const [userAnswer, setUserAnswer] = useState(null);
+            const [isSubmitted, setIsSubmitted] = useState(false);
+
+            const startQuiz = () => {
+                setGameState('quiz');
+                setCurrentQuestionIndex(0);
+                setScore(0);
+                setUserAnswer(null);
+                setIsSubmitted(false);
+                window.scrollTo(0,0);
+            };
+
+            const restartApp = () => {
+                setColleagueName('');
+                setGameState('welcome');
+            }
+
+            const handleAnswer = (index) => {
+                const isCorrect = index === questionsData[currentQuestionIndex].correctAnswer;
+                if (isCorrect) {
+                    SoundSystem.play('correct');
+                    setScore(prev => prev + 1);
+                } else {
+                    SoundSystem.play('wrong');
+                }
+                setUserAnswer(index);
+                setIsSubmitted(true);
+            };
+
+            const handleNext = () => {
+                if (currentQuestionIndex < questionsData.length - 1) {
+                    SoundSystem.play('transition');
+                    setCurrentQuestionIndex(prev => prev + 1);
+                    setUserAnswer(null);
+                    setIsSubmitted(false);
+                    // Slight timeout to ensure DOM update before scroll
+                    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50);
+                } else {
+                    setGameState('result');
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col font-tajawal">
+                    <Header />
+                    
+                    <main className="flex-grow w-full max-w-4xl mx-auto">
+                        {gameState === 'welcome' && (
+                            <WelcomeScreen 
+                                colleagueName={colleagueName} 
+                                setColleagueName={setColleagueName} 
+                                onStart={startQuiz} 
+                            />
+                        )}
+
+                        {gameState === 'quiz' && (
+                            <QuestionCard 
+                                key={currentQuestionIndex}
+                                questionData={questionsData[currentQuestionIndex]}
+                                totalQuestions={questionsData.length}
+                                currentStep={currentQuestionIndex + 1}
+                                onAnswer={handleAnswer}
+                                userAnswer={userAnswer}
+                                isSubmitted={isSubmitted}
+                                onNext={handleNext}
+                            />
+                        )}
+
+                        {gameState === 'result' && (
+                            <ResultScreen 
+                                score={score} 
+                                total={questionsData.length} 
+                                colleagueName={colleagueName}
+                                onRestart={restartApp} 
+                            />
+                        )}
+                    </main>
+
+                    <footer className="text-center py-6 text-slate-400 text-xs font-medium pb-safe">
+                        <p>WHATSAPP TEAM</p>
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
