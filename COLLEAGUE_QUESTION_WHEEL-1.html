@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>عجلة الزملاء والأسئلة</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23800000'/><circle cx='50' cy='50' r='10' fill='white'/></svg>">
+
+    <!-- Fonts & Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- React & Tailwind -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        tajawal: ['Tajawal', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            primary: '#800000',
+                            secondary: '#a52a2a',
+                            light: '#fff0f0',
+                        }
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'pop': 'pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                        'fade-in': 'fadeIn 0.5s ease-out forwards',
+                        'confetti-fall': 'confettiFall 3s linear forwards',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        pop: {
+                            '0%': { transform: 'scale(0.7)', opacity: 0 },
+                            '60%': { transform: 'scale(1.05)', opacity: 1 },
+                            '100%': { transform: 'scale(1)', opacity: 1 },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: 0, transform: 'translateY(15px)' },
+                            '100%': { opacity: 1, transform: 'translateY(0)' },
+                        },
+                        confettiFall: {
+                            '0%': { transform: 'translateY(-10vh) rotate(0deg)', opacity: 1 },
+                            '100%': { transform: 'translateY(100vh) rotate(720deg)', opacity: 0 },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #f8fafc;
+            background-image: radial-gradient(#e2caca 1px, transparent 1px);
+            background-size: 26px 26px;
+            overflow-x: hidden;
+        }
+        .no-tap-highlight { -webkit-tap-highlight-color: transparent; }
+        .card-shadow {
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 5px 15px -5px rgba(0, 0, 0, 0.03);
+        }
+        .wheel-shadow {
+            box-shadow: 0 15px 40px -8px rgba(128,0,0,0.35), inset 0 0 0 6px rgba(255,255,255,0.6);
+        }
+        .confetti-piece {
+            position: fixed;
+            top: -20px;
+            width: 10px;
+            height: 16px;
+            z-index: 60;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="text-slate-800 no-tap-highlight selection:bg-brand-primary selection:text-white min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        /* ================= SOUND SYSTEM ================= */
+        const SoundSystem = {
+            ctx: null,
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+            },
+            playClick() {
+                this.init();
+                const t = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(420, t);
+                osc.frequency.exponentialRampToValueAtTime(220, t + 0.08);
+                gain.gain.setValueAtTime(0.07, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+                osc.start(t); osc.stop(t + 0.12);
+            },
+            playTick() {
+                if (!this.ctx) return;
+                const t = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(950, t);
+                gain.gain.setValueAtTime(0.055, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
+                osc.start(t); osc.stop(t + 0.05);
+            },
+            playSpinTicks(durationMs, segCount) {
+                const tickCount = Math.min(55, Math.max(24, segCount * 3));
+                for (let i = 0; i <= tickCount; i++) {
+                    const progress = i / tickCount;
+                    const eased = 1 - Math.pow(1 - progress, 3); // إبطاء تدريجي
+                    const time = eased * durationMs;
+                    setTimeout(() => this.playTick(), time);
+                }
+            },
+            playWhoosh(durationMs) {
+                if (!this.ctx) return;
+                const t = this.ctx.currentTime;
+                const dur = durationMs / 1000;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, t);
+                osc.frequency.exponentialRampToValueAtTime(35, t + dur);
+                gain.gain.setValueAtTime(0.025, t);
+                gain.gain.linearRampToValueAtTime(0.0001, t + dur);
+                osc.start(t); osc.stop(t + dur + 0.1);
+            },
+            playReveal() {
+                this.init();
+                [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+                    const t = this.ctx.currentTime + i * 0.11;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, t);
+                    gain.gain.setValueAtTime(0.0001, t);
+                    gain.gain.linearRampToValueAtTime(0.13, t + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+                    osc.start(t); osc.stop(t + 0.45);
+                });
+            }
+        };
+
+        /* ================= DATA ================= */
+        const ALL_COLLEAGUES = [
+            "هناء جميل","احمد مجدي","عمار فتحي","ناهد محمد","علي احمد","محمد ابراهيم",
+            "روفيده محسن","احمد اشرف","منه احمد","ملك عبدالفتاح","عمر رزق",
+            "مريم ناجح","ساره رضا","منه الله محمود","ايمان احمد","خالد وليد","يمني محمد",
+            "محمد السيد عبدالحي","صباح جلال","عبدالباسط ايمن","ساره محمد",
+            "مريم عبد المنعم","علي سامح","طارق اسامه","احمد صبحي","مريم خليل","دينا مصطفي",
+            "مصطفي طه","سما سامح","نرمين حماده","عمر محمود",
+            "محمد نبيل","ابوبكر","طارق رمضان"
+        ];
+
+        const ALL_QUESTIONS = [
+            "la roch effaclar mat بيستخدم في ايه ؟",
+            "ما شكل التساقط الوراثي عند الرجال والسيدات ؟",
+            "ما النصائح التي يمكن توجيهها للعميل لتجنب جفاف البشره ؟",
+            "هل البشرة الدهنيه بتحتاج مرطب ؟ ولماذا ؟",
+            "ما اسباب التساقط العرضي المؤقت ؟",
+            "ماهي انواع حب الشباب ومتي تحتاج لزيارة الطبيب ؟",
+            "ما الفرق بين واقي الشمس الفيزيائي والكيميائي ؟",
+            "ما انواع قشرة الشعر ومتي تحتاج لزيارة الطبيب ؟",
+            "اذكر وظيفة السالسيلك اسيد ومنتج يحتويه ؟",
+            "اذكر وظيفة الريتينول ومنتج يحتويه ؟",
+            "اذكر وظيفة النياسيناميد ومنتج يحتويه ؟",
+            "اذكر وظيفة اليوريا مع ذكر منتج يحتويه ؟",
+            "ماهو جلد الوزة والاسباب الرئيسيه لها ؟",
+            'ما هو مصحح لون الشعر "رينساج" وما المنتجات المتوفرة ؟',
+            "ما الفرق بين الرؤوس السوداء والبيضاء وكيفية علاجها ؟",
+            "ما هو الروتين المناسب للشعر بعد البروتين ؟",
+            "عميلة تشتكي من ظهور قشرة في الشعر بعد البروتين ننصحها تستخدم ايه ؟",
+            "عميله راجعه من المصيف واغمقت وعايزه تستخدم كريم تفتيح ف نفس اليوم ننصحها بايه ؟",
+            "ما مواصفات البشرة الدهنيه والمختلطه والجافة ؟",
+            'ازاي بتتكتب الكلمات دي علي منتجات البشره "مضاد للمعان - ملمس جاف - مظهر مطفي - يعالج الحبوب - لايسبب حبوب - يتحكم في الدهون" ؟',
+            "ما انواع الهالات السوداء حول العين وازاي بنتعامل مع كل نوع ؟",
+            "ما انواع الصبغة المتوفرة خالية من الامونيا وما الفرق بينها وبين الصبغات العاديه ؟",
+            "علامات التمدد استريتش مارك ما انواعها وكيف يمكن علاجها ؟"
+        ];
+
+        const SEGMENT_COLORS = ['#800000', '#a52a2a', '#5c1220', '#c65d5d'];
+
+        function shuffle(arr) {
+            const a = [...arr];
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
+        /* ================= CONFETTI ================= */
+        const Confetti = () => {
+            const colors = ['#800000', '#a52a2a', '#f59e0b', '#10b981', '#3b82f6', '#c65d5d'];
+            const pieces = useMemo(() => Array.from({ length: 40 }, (_, i) => ({
+                id: i,
+                left: Math.random() * 100,
+                delay: Math.random() * 0.6,
+                color: colors[i % colors.length],
+                duration: 2.2 + Math.random() * 1.2
+            })), []);
+            return (
+                <div className="fixed inset-0 overflow-hidden pointer-events-none z-50">
+                    {pieces.map(p => (
+                        <div key={p.id} className="confetti-piece animate-confetti-fall"
+                            style={{
+                                left: `${p.left}%`,
+                                backgroundColor: p.color,
+                                animationDelay: `${p.delay}s`,
+                                animationDuration: `${p.duration}s`
+                            }}
+                        ></div>
+                    ))}
+                </div>
+            );
+        };
+
+        /* ================= HEADER ================= */
+        const Header = () => (
+            <header className="w-full py-6 xl:py-10 flex flex-col items-center justify-center gap-2 xl:gap-3">
+                <div className="w-16 h-16 xl:w-20 xl:h-20 rounded-2xl bg-brand-primary flex items-center justify-center card-shadow">
+                    <i className="fas fa-dharmachakra text-white text-2xl xl:text-3xl"></i>
+                </div>
+                <h1 className="text-2xl md:text-3xl xl:text-5xl font-black text-slate-800">عجلة الزملاء والأسئلة</h1>
+                <p className="text-slate-400 font-bold text-sm xl:text-lg">أنشطة تفاعلية بعد المحاضرة</p>
+            </header>
+        );
+
+        /* ================= SPIN WHEEL ================= */
+        const SpinWheel = ({ items, onSpinEnd, accent }) => {
+            const [rotation, setRotation] = useState(0);
+            const [spinning, setSpinning] = useState(false);
+
+            const segAngle = 360 / Math.max(items.length, 1);
+            const stops = items.map((_, i) => {
+                const color = SEGMENT_COLORS[i % SEGMENT_COLORS.length];
+                return `${color} ${i * segAngle}deg ${(i + 1) * segAngle}deg`;
+            }).join(', ');
+
+            const handleSpin = () => {
+                if (spinning || items.length === 0) return;
+                SoundSystem.init();
+                setSpinning(true);
+
+                const targetIndex = Math.floor(Math.random() * items.length);
+                const centerAngle = targetIndex * segAngle + segAngle / 2;
+                const spins = 6 + Math.floor(Math.random() * 3);
+                const deltaBase = (((-(centerAngle + rotation)) % 360) + 360) % 360;
+                const totalDelta = deltaBase + spins * 360;
+                const newRotation = rotation + totalDelta;
+                const duration = 4200;
+
+                SoundSystem.playSpinTicks(duration, items.length);
+                SoundSystem.playWhoosh(duration);
+                setRotation(newRotation);
+
+                setTimeout(() => {
+                    setSpinning(false);
+                    SoundSystem.playReveal();
+                    onSpinEnd(items[targetIndex], targetIndex);
+                }, duration + 60);
+            };
+
+            return (
+                <div className="flex flex-col items-center gap-6">
+                    <div className="relative">
+                        {/* Pointer */}
+                        <div className="absolute left-1/2 -translate-x-1/2 -top-4 xl:-top-5 z-20"
+                            style={{ width: 0, height: 0, borderLeft: '18px solid transparent', borderRight: '18px solid transparent', borderTop: '30px solid #1e293b' }}>
+                        </div>
+                        <div
+                            className="w-[280px] h-[280px] sm:w-[360px] sm:h-[360px] lg:w-[420px] lg:h-[420px] xl:w-[520px] xl:h-[520px] 2xl:w-[620px] 2xl:h-[620px] rounded-full border-[10px] border-white wheel-shadow"
+                            style={{
+                                background: `conic-gradient(${stops})`,
+                                transform: `rotate(${rotation}deg)`,
+                                transition: spinning ? 'transform 4.2s cubic-bezier(0.12, 0.67, 0.1, 1)' : 'none'
+                            }}
+                        ></div>
+                        {/* Center Hub */}
+                        <button
+                            onClick={handleSpin}
+                            disabled={spinning || items.length === 0}
+                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 sm:w-24 sm:h-24 xl:w-32 xl:h-32 2xl:w-36 2xl:h-36 rounded-full bg-white border-4 border-brand-primary shadow-xl flex items-center justify-center font-black text-brand-primary text-base sm:text-lg xl:text-2xl z-10 hover:scale-105 active:scale-95 transition-transform disabled:opacity-70"
+                        >
+                            {spinning ? <i className="fas fa-circle-notch fa-spin"></i> : 'دور!'}
+                        </button>
+                    </div>
+                    <p className="text-slate-400 font-bold text-sm xl:text-lg">{items.length} متبقي في العجلة</p>
+                </div>
+            );
+        };
+
+        /* ================= REVEAL CARD ================= */
+        const RevealCard = ({ icon, label, value, buttonLabel, onNext }) => (
+            <div className="w-full max-w-xl xl:max-w-3xl mx-auto animate-pop relative">
+                <Confetti />
+                <div className="bg-white p-8 md:p-10 xl:p-14 rounded-[2rem] card-shadow border border-slate-50 relative overflow-hidden text-center">
+                    <div className="absolute top-0 right-0 w-28 h-28 bg-brand-light rounded-bl-[4rem] -mr-8 -mt-8 z-0"></div>
+                    <div className="absolute bottom-0 left-0 w-20 h-20 bg-brand-light rounded-tr-[3rem] -ml-6 -mb-6 z-0"></div>
+                    <div className="relative z-10">
+                        <div className="w-14 h-14 xl:w-20 xl:h-20 mx-auto mb-4 xl:mb-6 rounded-full bg-brand-light flex items-center justify-center text-brand-primary text-xl xl:text-3xl">
+                            <i className={`fas ${icon}`}></i>
+                        </div>
+                        <span className="text-xs xl:text-base font-bold text-slate-400 uppercase tracking-wider">{label}</span>
+                        <h2 className="text-2xl md:text-4xl xl:text-5xl font-black text-slate-800 leading-relaxed mt-3 mb-8 xl:mb-10">
+                            {value}
+                        </h2>
+                        <button
+                            onClick={() => { SoundSystem.playClick(); onNext(); }}
+                            className="bg-brand-primary text-white px-8 py-4 xl:px-10 xl:py-5 rounded-xl font-bold text-lg xl:text-2xl hover:bg-brand-secondary active:scale-95 transition-all shadow-lg shadow-brand-primary/20 inline-flex items-center gap-3"
+                        >
+                            <span>{buttonLabel}</span>
+                            <i className="fas fa-arrow-left"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+
+        /* ================= APP ================= */
+        const App = () => {
+            const [phase, setPhase] = useState('colleague'); // colleague | reveal-colleague | question | reveal-question
+            const [remainingColleagues, setRemainingColleagues] = useState(() => shuffle(ALL_COLLEAGUES));
+            const [remainingQuestions, setRemainingQuestions] = useState(() => shuffle(ALL_QUESTIONS));
+            const [selectedColleague, setSelectedColleague] = useState(null);
+            const [selectedQuestion, setSelectedQuestion] = useState(null);
+            const [round, setRound] = useState(1);
+            const [notice, setNotice] = useState('');
+
+            const handleColleagueResult = (name, idx) => {
+                setSelectedColleague(name);
+                setRemainingColleagues(prev => {
+                    const next = prev.filter((_, i) => i !== idx);
+                    if (next.length === 0) {
+                        setNotice('تم استخدام كل الزملاء، هيتم تدوير القائمة من جديد');
+                        return shuffle(ALL_COLLEAGUES);
+                    }
+                    return next;
+                });
+                setPhase('reveal-colleague');
+            };
+
+            const handleQuestionResult = (q, idx) => {
+                setSelectedQuestion(q);
+                setRemainingQuestions(prev => {
+                    const next = prev.filter((_, i) => i !== idx);
+                    if (next.length === 0) {
+                        setNotice('تم استخدام كل الأسئلة، هيتم تدوير القائمة من جديد');
+                        return shuffle(ALL_QUESTIONS);
+                    }
+                    return next;
+                });
+                setPhase('reveal-question');
+            };
+
+            const goToQuestionPhase = () => setPhase('question');
+
+            const newRound = () => {
+                setSelectedColleague(null);
+                setSelectedQuestion(null);
+                setNotice('');
+                setRound(r => r + 1);
+                setPhase('colleague');
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col font-tajawal">
+                    <Header />
+
+                    <main className="flex-grow w-full max-w-5xl xl:max-w-6xl mx-auto px-4 flex flex-col items-center justify-center gap-6 xl:gap-10 pb-16">
+                        <div className="px-4 py-1.5 xl:px-6 xl:py-2 bg-white rounded-full text-brand-primary font-bold text-sm xl:text-xl card-shadow border border-brand-light">
+                            الجولة {round}
+                        </div>
+
+                        {selectedColleague && (phase === 'question' || phase === 'reveal-question') && (
+                            <div className="text-slate-500 font-bold text-lg xl:text-2xl">
+                                الزميل: <span className="text-brand-primary">{selectedColleague}</span>
+                            </div>
+                        )}
+
+                        {notice && (
+                            <div className="text-xs xl:text-base font-bold text-amber-600 bg-amber-50 border border-amber-200 px-4 py-2 xl:px-6 xl:py-3 rounded-xl animate-fade-in">
+                                <i className="fas fa-info-circle ml-1"></i>{notice}
+                            </div>
+                        )}
+
+                        {phase === 'colleague' && (
+                            <React.Fragment>
+                                <h2 className="text-xl md:text-2xl xl:text-4xl font-bold text-slate-700 text-center">دور العجلة لاختيار زميل عشوائي 🎯</h2>
+                                <SpinWheel items={remainingColleagues} onSpinEnd={handleColleagueResult} />
+                            </React.Fragment>
+                        )}
+
+                        {phase === 'reveal-colleague' && (
+                            <RevealCard
+                                icon="fa-user"
+                                label="الزميل المختار"
+                                value={selectedColleague}
+                                buttonLabel="التالي: عجلة الأسئلة"
+                                onNext={goToQuestionPhase}
+                            />
+                        )}
+
+                        {phase === 'question' && (
+                            <React.Fragment>
+                                <h2 className="text-xl md:text-2xl xl:text-4xl font-bold text-slate-700 text-center">دور العجلة لاختيار سؤال عشوائي ❓</h2>
+                                <SpinWheel items={remainingQuestions} onSpinEnd={handleQuestionResult} />
+                            </React.Fragment>
+                        )}
+
+                        {phase === 'reveal-question' && (
+                            <RevealCard
+                                icon="fa-circle-question"
+                                label="السؤال"
+                                value={selectedQuestion}
+                                buttonLabel="جولة جديدة"
+                                onNext={newRound}
+                            />
+                        )}
+                    </main>
+
+                    <footer className="text-center py-6 text-slate-400 text-xs font-medium">
+                        <p>WHATSAPP TEAM</p>
+                    </footer>
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
