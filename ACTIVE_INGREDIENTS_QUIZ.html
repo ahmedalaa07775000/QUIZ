@@ -772,13 +772,12 @@ const WelcomeScreen = ({ colleagueName, setColleagueName, onStart }) => {
                 setGameState('welcome');
             }
 
-            // إرسال الدرجة النهائية ووقت انتهاء آخر سؤال إلى جوجل شيت
+            // إرسال الدرجة النهائية ووقت انتهاء آخر سؤال مع الاسم في نفس الحقل (name) بدون تعديل الأب سكريبت
             const sendResultsToSheet = (finalScore, total, timeLabel) => {
+                const combinedInfo = `${colleagueName} - الدرجة: ${finalScore}/${total} - وقت الانتهاء: ${timeLabel}`;
+
                 const formData = new FormData();
-                formData.append('name', colleagueName);
-                formData.append('score', finalScore);
-                formData.append('total', total);
-                formData.append('finishTime', timeLabel);
+                formData.append('name', combinedInfo);
 
                 fetch(RESULTS_SCRIPT_URL, {
                     method: 'POST',
