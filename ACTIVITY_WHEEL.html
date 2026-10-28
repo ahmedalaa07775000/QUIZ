@@ -31,16 +31,11 @@
                         }
                     },
                     animation: {
-                        'float': 'float 6s ease-in-out infinite',
                         'pop': 'pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                         'fade-in': 'fadeIn 0.5s ease-out forwards',
                         'confetti-fall': 'confettiFall 3s linear forwards',
                     },
                     keyframes: {
-                        float: {
-                            '0%, 100%': { transform: 'translateY(0)' },
-                            '50%': { transform: 'translateY(-10px)' },
-                        },
                         pop: {
                             '0%': { transform: 'scale(0.7)', opacity: 0 },
                             '60%': { transform: 'scale(1.05)', opacity: 1 },
@@ -61,13 +56,18 @@
     </script>
 
     <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden; /* بدون اسكرول */
+        }
         body {
             font-family: 'Tajawal', sans-serif;
             background-color: #f8fafc;
             background-image: radial-gradient(#e2caca 1px, transparent 1px);
             background-size: 26px 26px;
-            overflow-x: hidden;
         }
+        #root { height: 100%; }
         .no-tap-highlight { -webkit-tap-highlight-color: transparent; }
         .card-shadow {
             box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 5px 15px -5px rgba(0, 0, 0, 0.03);
@@ -83,9 +83,19 @@
             z-index: 60;
             pointer-events: none;
         }
+        /* أحجام تتكيف مع ارتفاع وعرض الشاشة معاً */
+        :root {
+            --wheel: min(46vh, 88vw);
+            --wheel: min(46dvh, 88vw);
+        }
+        .fit-text-title { font-size: clamp(0.95rem, 3.2vh, 2.2rem); }
+        .fit-text-small { font-size: clamp(0.7rem, 2vh, 1.1rem); }
+        .fit-ticker { font-size: clamp(1.1rem, 4.2vh, 2.6rem); }
+        .fit-reveal-value { font-size: clamp(1.25rem, 4.6vh, 3rem); }
+        .fit-btn { font-size: clamp(0.9rem, 2.4vh, 1.4rem); padding: clamp(0.5rem, 1.5vh, 1rem) clamp(1rem, 3vh, 2rem); }
     </style>
 </head>
-<body class="text-slate-800 no-tap-highlight selection:bg-brand-primary selection:text-white min-h-screen">
+<body class="text-slate-800 no-tap-highlight selection:bg-brand-primary selection:text-white">
     <div id="root"></div>
 
     <script type="text/babel">
@@ -277,6 +287,41 @@
 "زيت يستخدم لإعطاء لون برونزي للجلد مع التعرض للشمس ؟"
         ];
 
+        // الإجابات بنفس ترتيب الأسئلة
+        const ALL_ANSWERS = [
+            "تقوية حاجز البشرة + ترطيبها (تقليل فقدان الماء).",
+            "الاسترخاء + خصائص مضادة للميكروبات.",
+            "يجب تخفيفها بزيوت ناقلة (أقصى تخفيف 5-10%)، عمل اختبار حساسية",
+            "الزيت ممكن يسد المسام وغير مناسب للبشرة المعرضة لحب الشباب.",
+            "يعزز نمو الشعر + ينشط الدورة الدموية ويقلل القشرة.",
+            "مطهر قوي مضاد للبكتيريا والفطريات + يساعد في علاج حب الشباب.",
+            "يعالج تساقط الشعر بشكل مشابه لمينوكسيديل 2% مع آثار جانبية أقل.",
+            "يقلل التجاعيد + مضاد للأكسدة ويجدد خلايا البشرة.",
+            "يهدئ البشرة والالتهاب + يساعد في تهدئة حب الشباب.",
+            "يقلل فقدان البروتين ويحمي من إجهاد الشعرة (Hygral Fatigue).",
+            "اللوز الحلو (آمن ومغذي) – اللوز المر غير آمن للبشرة ويُستخدم فقط لدفي العطور بكميات قليلة جداً.",
+            "زيوت الحمضيات (Citrus oils).",
+            "لأنه بينمو في بيئة طبيعية فريدة في المغرب فبيكون أغنى بالمواد الفعالة.",
+            "تساقط الشعر الوراثي لانه بيقلل نشاط إنزيم 5-alpha reductase.",
+            "تهدئة البشرة والتهابات وحروق الشمس.",
+            "Linseed Oil.",
+            "Peppermint Essential Oil أو Tea Tree.",
+            "Pure Aloe Vera Gel أو Calamine Lotion.",
+            "Lip Butter أو Honey & Cinnamon Lip Scrub.",
+            "Lavender Eye Cream.",
+            "Chocolate Hand Cream.",
+            "Perfect Glow Serum.",
+            "زيت السعد",
+            "Tea tree mist",
+            "MCT oil",
+            "زيت الترمس",
+            "زيت البندق",
+            "زيت حبة البركة",
+            "زيت جنين القمح و زيت اللوز الحلو",
+            "زيت الجزر"
+        ];
+        const ANSWER_BY_Q = Object.fromEntries(ALL_QUESTIONS.map((q, i) => [q, ALL_ANSWERS[i]]));
+
         const SEGMENT_COLORS = ['#800000', '#a52a2a', '#5c1220', '#c65d5d'];
 
         function shuffle(arr) {
@@ -314,21 +359,32 @@
             );
         };
 
-        /* ================= HEADER ================= */
-        const Header = () => (
-            <header className="w-full py-6 xl:py-10 flex flex-col items-center justify-center gap-2 xl:gap-3">
-                <div className="w-16 h-16 xl:w-20 xl:h-20 rounded-2xl bg-brand-primary flex items-center justify-center card-shadow">
-                    <i className="fas fa-dharmachakra text-white text-2xl xl:text-3xl"></i>
+        /* ================= HEADER (مدمج لتوفير المساحة) ================= */
+        const Header = ({ round }) => (
+            <header className="w-full flex items-center justify-center gap-3 pt-[1.5vh] pb-[0.5vh] shrink-0">
+                <div className="rounded-xl bg-brand-primary flex items-center justify-center card-shadow"
+                    style={{ width: 'clamp(2.2rem, 6vh, 4rem)', height: 'clamp(2.2rem, 6vh, 4rem)' }}>
+                    <i className="fas fa-dharmachakra text-white" style={{ fontSize: 'clamp(1rem, 3vh, 2rem)' }}></i>
                 </div>
-                <h1 className="text-2xl md:text-3xl xl:text-5xl font-black text-slate-800">WHEEL</h1>
-                <p className="text-slate-400 font-bold text-sm xl:text-lg">THE COSMETIC EXPERTS</p>
+                <div className="leading-tight text-center">
+                    <h1 className="font-black text-slate-800" style={{ fontSize: 'clamp(1.1rem, 3.8vh, 2.6rem)' }}>WHEEL</h1>
+                    <p className="text-slate-400 font-bold fit-text-small">THE COSMETIC EXPERTS</p>
+                </div>
+                <div className="px-3 py-1 bg-white rounded-full text-brand-primary font-bold fit-text-small card-shadow border border-brand-light mr-2">
+                    الجولة {round}
+                </div>
             </header>
         );
 
         /* ================= SPIN WHEEL ================= */
-        const SpinWheel = ({ items, onSpinEnd, accent }) => {
+        const SpinWheel = ({ items, onSpinEnd, showTicker }) => {
             const [rotation, setRotation] = useState(0);
             const [spinning, setSpinning] = useState(false);
+            const [tickerText, setTickerText] = useState('');
+            const [tickerDone, setTickerDone] = useState(false);
+            const timers = useRef([]);
+
+            useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
             const segAngle = 360 / Math.max(items.length, 1);
             const stops = items.map((_, i) => {
@@ -340,6 +396,7 @@
                 if (spinning || items.length === 0) return;
                 SoundSystem.init();
                 setSpinning(true);
+                setTickerDone(false);
 
                 const targetIndex = Math.floor(Math.random() * items.length);
                 const centerAngle = targetIndex * segAngle + segAngle / 2;
@@ -353,23 +410,51 @@
                 SoundSystem.playWhoosh(duration);
                 setRotation(newRotation);
 
-                setTimeout(() => {
+                // تغيير الأسماء عشوائياً داخل المستطيل مع إبطاء تدريجي
+                if (showTicker) {
+                    const steps = 42;
+                    let last = '';
+                    for (let i = 0; i < steps; i++) {
+                        const progress = i / steps;
+                        const eased = 1 - Math.pow(1 - progress, 3);
+                        const id = setTimeout(() => {
+                            let name;
+                            do { name = items[Math.floor(Math.random() * items.length)]; }
+                            while (items.length > 1 && name === last);
+                            last = name;
+                            setTickerText(name);
+                        }, eased * duration * 0.97);
+                        timers.current.push(id);
+                    }
+                    const finalId = setTimeout(() => {
+                        setTickerText(items[targetIndex]);
+                        setTickerDone(true);
+                    }, duration);
+                    timers.current.push(finalId);
+                }
+
+                const endId = setTimeout(() => {
                     setSpinning(false);
                     SoundSystem.playReveal();
                     onSpinEnd(items[targetIndex], targetIndex);
                 }, duration + 60);
+                timers.current.push(endId);
             };
 
             return (
-                <div className="flex flex-col items-center gap-6">
-                    <div className="relative">
+                <div className="flex flex-col items-center" style={{ gap: 'clamp(0.4rem, 1.6vh, 1.2rem)' }}>
+                    <div className="relative" style={{ width: 'var(--wheel)', height: 'var(--wheel)', marginTop: 'clamp(0.8rem, 2.6vh, 1.6rem)' }}>
                         {/* Pointer */}
-                        <div className="absolute left-1/2 -translate-x-1/2 -top-4 xl:-top-5 z-20"
-                            style={{ width: 0, height: 0, borderLeft: '18px solid transparent', borderRight: '18px solid transparent', borderTop: '30px solid #1e293b' }}>
+                        <div className="absolute left-1/2 -translate-x-1/2 z-20"
+                            style={{ top: 'calc(-1 * clamp(0.9rem, 3.2vh, 1.9rem))', width: 0, height: 0,
+                                borderLeft: 'clamp(10px, 2vh, 18px) solid transparent',
+                                borderRight: 'clamp(10px, 2vh, 18px) solid transparent',
+                                borderTop: 'clamp(18px, 3.6vh, 30px) solid #1e293b' }}>
                         </div>
                         <div
-                            className="w-[280px] h-[280px] sm:w-[360px] sm:h-[360px] lg:w-[420px] lg:h-[420px] xl:w-[520px] xl:h-[520px] 2xl:w-[620px] 2xl:h-[620px] rounded-full border-[10px] border-white wheel-shadow"
+                            className="w-full h-full rounded-full border-white wheel-shadow"
                             style={{
+                                borderWidth: 'clamp(5px, 1vh, 10px)',
                                 background: `conic-gradient(${stops})`,
                                 transform: `rotate(${rotation}deg)`,
                                 transition: spinning ? 'transform 4.2s cubic-bezier(0.12, 0.67, 0.1, 1)' : 'none'
@@ -379,42 +464,93 @@
                         <button
                             onClick={handleSpin}
                             disabled={spinning || items.length === 0}
-                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 sm:w-24 sm:h-24 xl:w-32 xl:h-32 2xl:w-36 2xl:h-36 rounded-full bg-white border-4 border-brand-primary shadow-xl flex items-center justify-center font-black text-brand-primary text-base sm:text-lg xl:text-2xl z-10 hover:scale-105 active:scale-95 transition-transform disabled:opacity-70"
+                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white border-4 border-brand-primary shadow-xl flex items-center justify-center font-black text-brand-primary z-10 hover:scale-105 active:scale-95 transition-transform disabled:opacity-70"
+                            style={{ width: '22%', height: '22%', fontSize: 'clamp(0.9rem, 3vh, 1.8rem)' }}
                         >
                             {spinning ? <i className="fas fa-circle-notch fa-spin"></i> : 'دور!'}
                         </button>
                     </div>
-                    <p className="text-slate-400 font-bold text-sm xl:text-lg">{items.length} متبقي في العجلة</p>
+
+                    {/* مستطيل أسماء الزملاء */}
+                    {showTicker && (
+                        <div
+                            className={`rounded-2xl border-2 flex items-center justify-center text-center font-black card-shadow transition-colors duration-300 px-4 overflow-hidden ${
+                                tickerDone
+                                    ? 'bg-brand-primary text-white border-brand-primary'
+                                    : 'bg-white text-slate-700 border-brand-light'
+                            }`}
+                            style={{ width: 'min(var(--wheel), 92vw)', minWidth: '260px', height: 'clamp(2.6rem, 8vh, 5rem)' }}
+                        >
+                            <span className="fit-ticker whitespace-nowrap overflow-hidden text-ellipsis max-w-full">
+                                {tickerText || <span className="text-slate-300 font-bold">اضغط "دور!" لاختيار زميل</span>}
+                            </span>
+                        </div>
+                    )}
+
+                    <p className="text-slate-400 font-bold fit-text-small">{items.length} متبقي في العجلة</p>
                 </div>
             );
         };
 
         /* ================= REVEAL CARD ================= */
-        const RevealCard = ({ icon, label, value, buttonLabel, onNext }) => (
-            <div className="w-full max-w-xl xl:max-w-3xl mx-auto animate-pop relative">
+        const RevealCard = ({ icon, label, value, buttonLabel, onNext, secondaryLabel, onSecondary, answer }) => {
+          const [showAnswer, setShowAnswer] = useState(false);
+          return (
+            <div className="w-full max-w-3xl mx-auto animate-pop relative px-2" style={{ maxHeight: '80vh' }}>
                 <Confetti />
-                <div className="bg-white p-8 md:p-10 xl:p-14 rounded-[2rem] card-shadow border border-slate-50 relative overflow-hidden text-center">
+                <div className="bg-white rounded-[2rem] card-shadow border border-slate-50 relative overflow-hidden text-center"
+                    style={{ padding: 'clamp(1rem, 4vh, 3rem)' }}>
                     <div className="absolute top-0 right-0 w-28 h-28 bg-brand-light rounded-bl-[4rem] -mr-8 -mt-8 z-0"></div>
                     <div className="absolute bottom-0 left-0 w-20 h-20 bg-brand-light rounded-tr-[3rem] -ml-6 -mb-6 z-0"></div>
                     <div className="relative z-10">
-                        <div className="w-14 h-14 xl:w-20 xl:h-20 mx-auto mb-4 xl:mb-6 rounded-full bg-brand-light flex items-center justify-center text-brand-primary text-xl xl:text-3xl">
+                        <div className="mx-auto rounded-full bg-brand-light flex items-center justify-center text-brand-primary"
+                            style={{ width: 'clamp(2.5rem, 8vh, 5rem)', height: 'clamp(2.5rem, 8vh, 5rem)', fontSize: 'clamp(1.1rem, 3.5vh, 2rem)', marginBottom: 'clamp(0.4rem, 1.5vh, 1.2rem)' }}>
                             <i className={`fas ${icon}`}></i>
                         </div>
-                        <span className="text-xs xl:text-base font-bold text-slate-400 uppercase tracking-wider">{label}</span>
-                        <h2 className="text-2xl md:text-4xl xl:text-5xl font-black text-slate-800 leading-relaxed mt-3 mb-8 xl:mb-10">
+                        <span className="font-bold text-slate-400 uppercase tracking-wider fit-text-small">{label}</span>
+                        <h2 className="fit-reveal-value font-black text-slate-800 leading-relaxed"
+                            style={{ marginTop: 'clamp(0.3rem, 1.2vh, 0.8rem)', marginBottom: 'clamp(0.8rem, 3vh, 2rem)' }}>
                             {value}
                         </h2>
-                        <button
-                            onClick={() => { SoundSystem.playClick(); onNext(); }}
-                            className="bg-brand-primary text-white px-8 py-4 xl:px-10 xl:py-5 rounded-xl font-bold text-lg xl:text-2xl hover:bg-brand-secondary active:scale-95 transition-all shadow-lg shadow-brand-primary/20 inline-flex items-center gap-3"
-                        >
-                            <span>{buttonLabel}</span>
-                            <i className="fas fa-arrow-left"></i>
-                        </button>
+                        {answer && showAnswer && (
+                            <div className="animate-fade-in rounded-2xl bg-brand-light border border-brand-primary/30 text-brand-primary font-bold leading-relaxed fit-text-title"
+                                style={{ padding: 'clamp(0.6rem, 2vh, 1.4rem)', marginBottom: 'clamp(0.8rem, 3vh, 2rem)' }}
+                                dir="auto">
+                                <i className="fas fa-check-circle ml-2"></i>{answer}
+                            </div>
+                        )}
+                        <div className="flex flex-wrap items-center justify-center gap-3">
+                            {answer && (
+                                <button
+                                    onClick={() => { SoundSystem.playClick(); setShowAnswer(s => !s); }}
+                                    className="fit-btn bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 active:scale-95 transition-all shadow-lg shadow-amber-500/20 inline-flex items-center gap-3"
+                                >
+                                    <i className={`fas ${showAnswer ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                                    <span>{showAnswer ? 'إخفاء الإجابة' : 'إظهار الإجابة'}</span>
+                                </button>
+                            )}
+                            <button
+                                onClick={() => { SoundSystem.playClick(); onNext(); }}
+                                className="fit-btn bg-brand-primary text-white rounded-xl font-bold hover:bg-brand-secondary active:scale-95 transition-all shadow-lg shadow-brand-primary/20 inline-flex items-center gap-3"
+                            >
+                                <span>{buttonLabel}</span>
+                                <i className="fas fa-arrow-left"></i>
+                            </button>
+                            {secondaryLabel && (
+                                <button
+                                    onClick={() => { SoundSystem.playClick(); onSecondary(); }}
+                                    className="fit-btn bg-white text-brand-primary border-2 border-brand-primary rounded-xl font-bold hover:bg-brand-light active:scale-95 transition-all inline-flex items-center gap-3"
+                                >
+                                    <i className="fas fa-rotate"></i>
+                                    <span>{secondaryLabel}</span>
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
-        );
+          );
+        };
 
         /* ================= APP ================= */
         const App = () => {
@@ -426,33 +562,42 @@
             const [round, setRound] = useState(1);
             const [notice, setNotice] = useState('');
 
+            // الزميل المختار يُستبعد من العجلة مباشرة
             const handleColleagueResult = (name, idx) => {
                 setSelectedColleague(name);
-                setRemainingColleagues(prev => {
-                    const next = prev.filter((_, i) => i !== idx);
-                    if (next.length === 0) {
-                        setNotice('تم استخدام كل الزملاء، هيتم تدوير القائمة من جديد');
-                        return shuffle(ALL_COLLEAGUES);
-                    }
-                    return next;
-                });
+                setNotice('');
+                const next = remainingColleagues.filter((_, i) => i !== idx);
+                if (next.length === 0) {
+                    setNotice('تم استخدام كل الزملاء، هيتم تدوير القائمة من جديد');
+                    setRemainingColleagues(shuffle(ALL_COLLEAGUES.filter(c => c !== name)));
+                } else {
+                    setRemainingColleagues(next);
+                }
                 setPhase('reveal-colleague');
             };
 
             const handleQuestionResult = (q, idx) => {
                 setSelectedQuestion(q);
-                setRemainingQuestions(prev => {
-                    const next = prev.filter((_, i) => i !== idx);
-                    if (next.length === 0) {
-                        setNotice('تم استخدام كل الأسئلة، هيتم تدوير القائمة من جديد');
-                        return shuffle(ALL_QUESTIONS);
-                    }
-                    return next;
-                });
+                setNotice('');
+                const next = remainingQuestions.filter((_, i) => i !== idx);
+                if (next.length === 0) {
+                    setNotice('تم استخدام كل الأسئلة، هيتم تدوير القائمة من جديد');
+                    setRemainingQuestions(shuffle(ALL_QUESTIONS));
+                } else {
+                    setRemainingQuestions(next);
+                }
                 setPhase('reveal-question');
             };
 
-            const goToQuestionPhase = () => setPhase('question');
+            const goToQuestionPhase = () => { setNotice(''); setPhase('question'); };
+
+            // اختيار زميل آخر (الزميل الحالي مستبعد بالفعل من العجلة)
+            const pickAnotherColleague = () => {
+                const excluded = selectedColleague;
+                setSelectedColleague(null);
+                setNotice(excluded ? `تم استبعاد ${excluded}` : '');
+                setPhase('colleague');
+            };
 
             const newRound = () => {
                 setSelectedColleague(null);
@@ -463,30 +608,36 @@
             };
 
             return (
-                <div className="min-h-screen flex flex-col font-tajawal">
-                    <Header />
+                <div className="h-full flex flex-col font-tajawal overflow-hidden">
+                    <Header round={round} />
 
-                    <main className="flex-grow w-full max-w-5xl xl:max-w-6xl mx-auto px-4 flex flex-col items-center justify-center gap-6 xl:gap-10 pb-16">
-                        <div className="px-4 py-1.5 xl:px-6 xl:py-2 bg-white rounded-full text-brand-primary font-bold text-sm xl:text-xl card-shadow border border-brand-light">
-                            الجولة {round}
-                        </div>
+                    <main className="flex-1 min-h-0 w-full mx-auto px-4 flex flex-col items-center justify-center overflow-hidden"
+                        style={{ gap: 'clamp(0.3rem, 1.2vh, 1rem)' }}>
 
                         {selectedColleague && (phase === 'question' || phase === 'reveal-question') && (
-                            <div className="text-slate-500 font-bold text-lg xl:text-2xl">
-                                الزميل: <span className="text-brand-primary">{selectedColleague}</span>
+                            <div className="flex items-center gap-3 text-slate-500 font-bold fit-text-title">
+                                <span>الزميل: <span className="text-brand-primary">{selectedColleague}</span></span>
+                                {phase === 'question' && (
+                                    <button
+                                        onClick={() => { SoundSystem.playClick(); pickAnotherColleague(); }}
+                                        className="text-brand-primary border border-brand-primary rounded-lg px-3 py-0.5 fit-text-small hover:bg-brand-light active:scale-95 transition-all"
+                                    >
+                                        <i className="fas fa-rotate ml-1"></i>زميل آخر
+                                    </button>
+                                )}
                             </div>
                         )}
 
                         {notice && (
-                            <div className="text-xs xl:text-base font-bold text-amber-600 bg-amber-50 border border-amber-200 px-4 py-2 xl:px-6 xl:py-3 rounded-xl animate-fade-in">
+                            <div className="fit-text-small font-bold text-amber-600 bg-amber-50 border border-amber-200 px-4 py-1 rounded-xl animate-fade-in">
                                 <i className="fas fa-info-circle ml-1"></i>{notice}
                             </div>
                         )}
 
                         {phase === 'colleague' && (
                             <React.Fragment>
-                                <h2 className="text-xl md:text-2xl xl:text-4xl font-bold text-slate-700 text-center">دور العجلة لاختيار زميل 🎯</h2>
-                                <SpinWheel items={remainingColleagues} onSpinEnd={handleColleagueResult} />
+                                <h2 className="fit-text-title font-bold text-slate-700 text-center">دور العجلة لاختيار زميل 🎯</h2>
+                                <SpinWheel key={`c-${remainingColleagues.length}-${round}`} items={remainingColleagues} onSpinEnd={handleColleagueResult} showTicker={true} />
                             </React.Fragment>
                         )}
 
@@ -497,13 +648,15 @@
                                 value={selectedColleague}
                                 buttonLabel="الأسئلة"
                                 onNext={goToQuestionPhase}
+                                secondaryLabel="اختيار زميل آخر"
+                                onSecondary={pickAnotherColleague}
                             />
                         )}
 
                         {phase === 'question' && (
                             <React.Fragment>
-                                <h2 className="text-xl md:text-2xl xl:text-4xl font-bold text-slate-700 text-center">دور العجلة لاختيار سؤال عشوائي ❓</h2>
-                                <SpinWheel items={remainingQuestions} onSpinEnd={handleQuestionResult} />
+                                <h2 className="fit-text-title font-bold text-slate-700 text-center">دور العجلة لاختيار سؤال عشوائي ❓</h2>
+                                <SpinWheel key={`q-${remainingQuestions.length}-${round}`} items={remainingQuestions} onSpinEnd={handleQuestionResult} showTicker={false} />
                             </React.Fragment>
                         )}
 
@@ -512,13 +665,14 @@
                                 icon="fa-circle-question"
                                 label="السؤال"
                                 value={selectedQuestion}
+                                answer={ANSWER_BY_Q[selectedQuestion]}
                                 buttonLabel="ابدأ من جديد"
                                 onNext={newRound}
                             />
                         )}
                     </main>
 
-                    <footer className="text-center py-6 text-slate-400 text-xs font-medium">
+                    <footer className="text-center text-slate-400 font-medium shrink-0" style={{ fontSize: 'clamp(0.6rem, 1.5vh, 0.8rem)', padding: '0.4vh 0 0.8vh' }}>
                         <p>THE COSMETIC EXPERTS A.A & H.G</p>
                     </footer>
                 </div>
