@@ -495,31 +495,40 @@
         /* ================= REVEAL CARD ================= */
         const RevealCard = ({ icon, label, value, buttonLabel, onNext, secondaryLabel, onSecondary, answer }) => {
           const [showAnswer, setShowAnswer] = useState(false);
+          const long = value.length > 70;
+          const valueSize = showAnswer
+              ? 'clamp(1rem, 3vh, 2rem)'
+              : (long ? 'clamp(1.1rem, 3.6vh, 2.4rem)' : 'clamp(1.25rem, 4.6vh, 3rem)');
           return (
-            <div className="w-full max-w-3xl mx-auto animate-pop relative px-2" style={{ maxHeight: '80vh' }}>
+            <div className="w-full max-w-3xl mx-auto animate-pop relative px-2 flex flex-col min-h-0" style={{ maxHeight: '100%' }}>
                 <Confetti />
-                <div className="bg-white rounded-[2rem] card-shadow border border-slate-50 relative overflow-hidden text-center"
-                    style={{ padding: 'clamp(1rem, 4vh, 3rem)' }}>
+                <div className="bg-white rounded-[2rem] card-shadow border border-slate-50 relative overflow-hidden text-center flex flex-col min-h-0"
+                    style={{ padding: 'clamp(0.8rem, 3vh, 2rem)', maxHeight: '100%' }}>
                     <div className="absolute top-0 right-0 w-28 h-28 bg-brand-light rounded-bl-[4rem] -mr-8 -mt-8 z-0"></div>
                     <div className="absolute bottom-0 left-0 w-20 h-20 bg-brand-light rounded-tr-[3rem] -ml-6 -mb-6 z-0"></div>
-                    <div className="relative z-10">
-                        <div className="mx-auto rounded-full bg-brand-light flex items-center justify-center text-brand-primary"
-                            style={{ width: 'clamp(2.5rem, 8vh, 5rem)', height: 'clamp(2.5rem, 8vh, 5rem)', fontSize: 'clamp(1.1rem, 3.5vh, 2rem)', marginBottom: 'clamp(0.4rem, 1.5vh, 1.2rem)' }}>
-                            <i className={`fas ${icon}`}></i>
+                    <div className="relative z-10 flex flex-col min-h-0">
+                        {/* المحتوى: يتقلص حسب المساحة والأزرار تفضل ظاهرة دايماً */}
+                        <div className="flex-1 min-h-0 overflow-y-auto">
+                            {!showAnswer && (
+                                <div className="mx-auto rounded-full bg-brand-light flex items-center justify-center text-brand-primary"
+                                    style={{ width: 'clamp(2.2rem, 7vh, 4.5rem)', height: 'clamp(2.2rem, 7vh, 4.5rem)', fontSize: 'clamp(1rem, 3vh, 1.8rem)', marginBottom: 'clamp(0.3rem, 1.2vh, 1rem)' }}>
+                                    <i className={`fas ${icon}`}></i>
+                                </div>
+                            )}
+                            <span className="font-bold text-slate-400 uppercase tracking-wider fit-text-small">{label}</span>
+                            <h2 className="font-black text-slate-800 leading-relaxed"
+                                style={{ fontSize: valueSize, marginTop: 'clamp(0.2rem, 1vh, 0.6rem)', marginBottom: 'clamp(0.5rem, 2vh, 1.4rem)' }}>
+                                {value}
+                            </h2>
+                            {answer && showAnswer && (
+                                <div className="animate-fade-in rounded-2xl bg-brand-light border border-brand-primary/30 text-brand-primary font-bold leading-relaxed"
+                                    style={{ fontSize: 'clamp(0.9rem, 2.8vh, 1.8rem)', padding: 'clamp(0.5rem, 1.6vh, 1.2rem)', marginBottom: 'clamp(0.4rem, 1.5vh, 1rem)' }}
+                                    dir="auto">
+                                    <i className="fas fa-check-circle ml-2"></i>{answer}
+                                </div>
+                            )}
                         </div>
-                        <span className="font-bold text-slate-400 uppercase tracking-wider fit-text-small">{label}</span>
-                        <h2 className="fit-reveal-value font-black text-slate-800 leading-relaxed"
-                            style={{ marginTop: 'clamp(0.3rem, 1.2vh, 0.8rem)', marginBottom: 'clamp(0.8rem, 3vh, 2rem)' }}>
-                            {value}
-                        </h2>
-                        {answer && showAnswer && (
-                            <div className="animate-fade-in rounded-2xl bg-brand-light border border-brand-primary/30 text-brand-primary font-bold leading-relaxed fit-text-title"
-                                style={{ padding: 'clamp(0.6rem, 2vh, 1.4rem)', marginBottom: 'clamp(0.8rem, 3vh, 2rem)' }}
-                                dir="auto">
-                                <i className="fas fa-check-circle ml-2"></i>{answer}
-                            </div>
-                        )}
-                        <div className="flex flex-wrap items-center justify-center gap-3">
+                        <div className="shrink-0 flex flex-wrap items-center justify-center gap-2 pt-2">
                             {answer && (
                                 <button
                                     onClick={() => { SoundSystem.playClick(); setShowAnswer(s => !s); }}
@@ -529,13 +538,6 @@
                                     <span>{showAnswer ? 'إخفاء الإجابة' : 'إظهار الإجابة'}</span>
                                 </button>
                             )}
-                            <button
-                                onClick={() => { SoundSystem.playClick(); onNext(); }}
-                                className="fit-btn bg-brand-primary text-white rounded-xl font-bold hover:bg-brand-secondary active:scale-95 transition-all shadow-lg shadow-brand-primary/20 inline-flex items-center gap-3"
-                            >
-                                <span>{buttonLabel}</span>
-                                <i className="fas fa-arrow-left"></i>
-                            </button>
                             {secondaryLabel && (
                                 <button
                                     onClick={() => { SoundSystem.playClick(); onSecondary(); }}
@@ -545,6 +547,13 @@
                                     <span>{secondaryLabel}</span>
                                 </button>
                             )}
+                            <button
+                                onClick={() => { SoundSystem.playClick(); onNext(); }}
+                                className="fit-btn bg-brand-primary text-white rounded-xl font-bold hover:bg-brand-secondary active:scale-95 transition-all shadow-lg shadow-brand-primary/20 inline-flex items-center gap-3"
+                            >
+                                <span>{buttonLabel}</span>
+                                <i className="fas fa-arrow-left"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -668,6 +677,8 @@
                                 answer={ANSWER_BY_Q[selectedQuestion]}
                                 buttonLabel="ابدأ من جديد"
                                 onNext={newRound}
+                                secondaryLabel="زميل آخر"
+                                onSecondary={pickAnotherColleague}
                             />
                         )}
                     </main>
